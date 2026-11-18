@@ -41,6 +41,22 @@ format reference and as a last-resort fallback):
   deviation (floored at 0.15 log units), applied with the standard
   normal's quantiles. Quantiles are q_tau = p1 * exp(mu + z_tau * sd).
 
+  The median is not the quadratic alone. A quadratic and a line are
+  both reasonable models of the same log-log relation, and averaging
+  them hedges the risk that either one's functional form is wrong at
+  the case's hour-1 level. But the average is tapered: the line gets
+  weight only in the interior of the comparables' hour-1 range, where
+  the data is dense and both fits are well supported, and the weight
+  fades to zero at both edges. At the edges the quadratic's curvature
+  is the structural feature that matters -- at the top end it is what
+  keeps the evening at or above hour 1 (the six comparables with
+  hour-1 above 300k all peak at 0.94-1.34x hour 1, while a line
+  extrapolated there wrongly predicts the evening below hour 1) -- so
+  at the edges the forecast is the pure quadratic. The taper is
+  w_line = 0.5 * 4 * t * (1 - t), where t is the case's hour-1 level
+  as a fraction of the comparables' log hour-1 range: 0 at both ends,
+  0.5 (an equal average) at the centre.
+
   Fallbacks, in order, if the comparables cannot support a fit: the
   empirical median-ratio curve with empirical quantile spread; then the
   house persistence baseline (the starter's formula).
@@ -247,6 +263,17 @@ def forecast_case(case, name):
         # The case's hour-1 level, clamped to the comparables' range so
         # the fit never extrapolates past the data it was fitted on.
         lh1 = min(max(math.log(p1), lo_h1), hi_h1)
+        # Position of the case's hour-1 level inside the comparables'
+        # range, as a fraction: 0 at the bottom, 1 at the top. The
+        # linear fit's weight in the median average is tapered by
+        # 4*t*(1-t): full (equal) weight at the centre, where the data
+        # is dense, fading to zero at both edges, where the quadratic's
+        # curvature is the structural feature and the line misbehaves.
+        if hi_h1 > lo_h1:
+            t = (lh1 - lo_h1) / (hi_h1 - lo_h1)
+            w_line = 0.5 * 4.0 * t * (1.0 - t)
+        else:
+            w_line = 0.0
         rows = []
         ok = True
         for h in hours:
@@ -256,13 +283,18 @@ def forecast_case(case, name):
                 if h in curve
             ]
             fitted = fit_quadratic([p[0] for p in pts], [p[1] for p in pts])
+            linear = fit_line([p[0] for p in pts], [p[1] for p in pts])
             if fitted is None:
-                fitted = fit_line([p[0] for p in pts], [p[1] for p in pts])
+                fitted = linear
+                linear = None
             if fitted is None:
                 ok = False
                 break
             predict, sd = fitted
             mu = predict(lh1)
+            if linear is not None and w_line > 0.0:
+                lmu = linear[0](lh1)
+                mu = (1.0 - w_line) * mu + w_line * lmu
             mu = min(max(mu, LOG_RATIO_MIN), LOG_RATIO_MAX)
             sd = max(sd, SD_FLOOR)
             qs = [mu + z * sd for z in Z]

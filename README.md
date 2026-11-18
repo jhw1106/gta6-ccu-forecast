@@ -33,7 +33,14 @@ comparables (launches with a real release-day curve: hour 1 present, at
 least 20 of 24 hours, hour-1 viewers >= 10,000 -- below that, hour 1 was
 a pre-launch hour for a fixed-time global unlock), evaluates it at the
 case's hour-1 level clamped to the comparables' range, and sets the
-quantile spread from the fit's residual standard deviation.
+quantile spread from the fit's residual standard deviation. The median
+is the quadratic averaged with a linear fit of the same relation,
+tapered so the line only carries weight in the interior of the
+comparables' hour-1 range (weight 0.5 * 4t(1-t), where t is the case's
+hour-1 level as a fraction of the range): at the edges the forecast is
+the pure quadratic, whose curvature is what keeps the evening at or
+above hour 1 for a mega launch, while in the dense middle the average
+hedges either fit's functional-form risk.
 
 ## Results on the practice cases
 
@@ -43,14 +50,14 @@ fetched once from SullyGnome's public chart API for validation only):
 
 | case | this entry | house baseline |
 | ---- | ---------: | -------------: |
-| Marvel's Wolverine | 0.2699 | 0.7437 |
-| Red Dead Redemption 2 | 0.2388 | 0.2868 |
-| God of War Ragnarok | 0.1613 | 0.2146 |
-| Marvel's Spider-Man 2 | 0.1950 | 0.3033 |
-| **mean** | **0.2163** | **0.3871** |
+| Marvel's Wolverine | 0.2791 | 0.7437 |
+| Red Dead Redemption 2 | 0.2235 | 0.2868 |
+| God of War Ragnarok | 0.1579 | 0.2146 |
+| Marvel's Spider-Man 2 | 0.1915 | 0.3033 |
+| **mean** | **0.2130** | **0.3871** |
 
-Mean log pinball loss 0.2163 vs the house baseline's 0.3871 (typical miss
-about 45% vs 83%). Runtime is about 0.08 s per case; two runs on the
+Mean log pinball loss 0.2130 vs the house baseline's 0.3871 (typical miss
+about 44% vs 83%). Runtime is about 0.04 s per case; two runs on the
 same case write byte-identical output.
 
 ## Run it
